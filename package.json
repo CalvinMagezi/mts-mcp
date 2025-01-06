@@ -1,0 +1,36 @@
+{
+  "name": "mts-mcp",
+  "version": "0.1.0",
+  "description": "A model context protocol that gives an LLM various skills",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "mts-mcp": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.1.0",
+    "@notionhq/client": "^2.2.15",
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "node-html-markdown": "^1.3.0",
+    "puppeteer": "^21.0.0",
+    "url-parse": "^1.5.10",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/url-parse": "^1.4.11",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.3.3"
+  }
+}
