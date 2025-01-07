@@ -295,7 +295,7 @@ export class PackageManagerServer {
     ],
   }));
 
-  public async handleToolRequest(toolName: string, params: any) {
+  public async handleToolRequest(toolName: string, params: Record<string, any>) {
     try {
       // Helper function to create standardized tool responses
       const createToolResponse = (content: { type: string; text: string }[]) => ({
@@ -328,8 +328,8 @@ export class PackageManagerServer {
           }
 
           try {
-            const pm = PACKAGE_MANAGERS[packageManager];
-            if (!("install" in pm)) {
+            const pm = PACKAGE_MANAGERS[packageManager as keyof typeof PACKAGE_MANAGERS];
+            if (!pm || !("install" in pm)) {
               throw new Error(
                 `Package manager ${packageManager} doesn't support this operation`
               );
