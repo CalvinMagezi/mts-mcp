@@ -329,7 +329,12 @@ export class PackageManagerServer {
 
           try {
             const pm = PACKAGE_MANAGERS[packageManager as keyof typeof PACKAGE_MANAGERS];
-            if (!pm || !("install" in pm)) {
+            if (!pm) {
+              throw new Error(
+                `Package manager ${packageManager} is not supported`
+              );
+            }
+            if (!("install" in pm)) {
               throw new Error(
                 `Package manager ${packageManager} doesn't support this operation`
               );
