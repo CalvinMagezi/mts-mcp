@@ -15,6 +15,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { NexusManager } from "./services/nexus/nexus-manager.js";
 import { ReasoningManager } from "./services/reasoning/reasoning-manager.js";
+import { PackageManagerServer } from "./services/package-manager/package-manager.js";
 import {
   CreateReasoningStepArgs,
   AnalyzeArgs,
@@ -56,6 +57,7 @@ const reasoningManager = new ReasoningManager(server);
 const perplexityManager = new PerplexityManager(server);
 const newsManager = new NewsManager(server);
 const notionManager = new NotionManager(server);
+const packageManager = new PackageManagerServer();
 
 // Set up request handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -409,6 +411,112 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               default: 10,
             },
           },
+        },
+      },
+      // Package Manager Tools
+      {
+        name: "manage_packages",
+        description: "Install or uninstall packages using npm/yarn/pnpm/bun",
+        inputSchema: {
+          type: "object",
+          properties: {
+            operation: {
+              type: "string",
+              enum: ["install", "uninstall"],
+              description: "Operation to perform",
+            },
+            packages: {
+              type: "array",
+              items: { type: "string" },
+              description: "Package names",
+            },
+            packageManager: {
+              type: "string",
+              enum: ["npm", "yarn", "pnpm", "bun"],
+              default: "bun",
+              description: "Package manager to use",
+            },
+            dev: {
+              type: "boolean",
+              default: false,
+              description: "Install as dev dependency",
+            },
+          },
+          required: ["operation", "packages"],
+        },
+      },
+      {
+        name: "set_working_directory",
+        description: "Set the working directory for package operations",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: {
+              type: "string",
+              description: "Path to working directory",
+            },
+          },
+          required: ["path"],
+        },
+      },
+      {
+        name: "create_nextjs_app",
+        description: "Create a new Next.js application with interactive setup",
+        inputSchema: {
+          type: "object",
+          properties: {
+            projectPath: {
+              type: "string",
+              description: "Path where the Next.js project should be created",
+            },
+            answers: {
+              type: "object",
+              description: "Answers to the setup questions",
+              properties: {
+                "What is your project named?": {
+                  type: "string",
+                  description: "The name of your Next.js project",
+                },
+                "Would you like to use TypeScript?": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "Yes",
+                },
+                "Would you like to use ESLint?": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "Yes",
+                },
+                "Would you like to use Tailwind CSS?": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "Yes",
+                },
+                "Would you like your code inside a `src/` directory?": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "Yes",
+                },
+                "Would you like to use App Router? (recommended)": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "Yes",
+                },
+                "Would you like to use Turbopack for `next dev`?": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "No",
+                },
+                "Would you like to customize the import alias ('*' (see below for file content) by default)?": {
+                  type: "string",
+                  enum: ["No", "Yes"],
+                  default: "No",
+                },
+              },
+              required: ["What is your project named?"],
+            },
+          },
+          required: ["projectPath", "answers"],
         },
       },
       // Notion Tools
@@ -783,6 +891,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             text: JSON.stringify(result, null, 2),
           }))
         );
+      }
+
+      // Package Manager Tools
+      case "manage_packages":
+      case "set_working_directory":
+      case "create_nextjs_app": {
+        return packageManager.handleToolRequest(toolName, params);
       }
 
       default:

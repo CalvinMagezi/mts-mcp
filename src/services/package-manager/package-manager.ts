@@ -5,11 +5,15 @@ import {
   ReadResourceRequestSchema,
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  CallToolRequest,
   ErrorCode,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { mkdir } from 'fs/promises';
+import { dirname } from 'path';
+import path from 'path';
 
 // Convert exec to promise-based
 const execAsync = promisify(exec);
@@ -95,9 +99,20 @@ async function executeInteractiveCommand(
   });
 }
 
+// Add these constants at the top of the file
+const ALLOWED_DIRECTORIES = [
+  'desktop',
+  'downloads',
+  'documents'
+].map(dir => {
+  const homedir = process.env.HOME || process.env.USERPROFILE;
+  return path.join(homedir || '', dir.toLowerCase());
+});
+
 export class PackageManagerServer {
   private server: Server;
   private currentWorkingDir: string;
+  private defaultWorkingDir: string;
 
   constructor() {
     this.server = new Server(
@@ -113,8 +128,10 @@ export class PackageManagerServer {
       }
     );
 
-    // Default to current directory
-    this.currentWorkingDir = process.cwd();
+    // Set default working directory to desktop
+    const homedir = process.env.HOME || process.env.USERPROFILE;
+    this.defaultWorkingDir = path.join(homedir || '', 'desktop');
+    this.currentWorkingDir = this.defaultWorkingDir;
 
     this.setupHandlers();
     this.setupErrorHandling();
@@ -287,13 +304,35 @@ export class PackageManagerServer {
                   },
                 },
                 required: ["What is your project named?"],
+              },
             },
+            required: ["projectPath", "answers"],
           },
-          required: ["projectPath", "answers"],
         },
-      },
-    ],
-  }));
+      ],
+    }));
+
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      return this.handleToolRequest(
+        request.params.name,
+        request.params.arguments || {}
+      );
+    });
+  }
+
+  private validateWorkingDirectory(dir: string): boolean {
+    const normalizedPath = path.normalize(dir).toLowerCase();
+    return ALLOWED_DIRECTORIES.some(allowed => 
+      normalizedPath.startsWith(allowed.toLowerCase())
+    );
+  }
+
+  private async ensureWorkingDirectory(): Promise<void> {
+    if (!this.validateWorkingDirectory(this.currentWorkingDir)) {
+      this.currentWorkingDir = this.defaultWorkingDir;
+    }
+    await mkdir(this.currentWorkingDir, { recursive: true });
+  }
 
   public async handleToolRequest(toolName: string, params: Record<string, any>) {
     try {
@@ -369,12 +408,19 @@ export class PackageManagerServer {
         }
 
         case "set_working_directory": {
-          const { path } = params as { path: string };
-          this.currentWorkingDir = path;
+          const { path: newPath } = params as { path: string };
+          if (!this.validateWorkingDirectory(newPath)) {
+            throw new McpError(
+              ErrorCode.InvalidRequest,
+              `Access denied - path outside allowed directories: ${newPath}\nAllowed directories: ${ALLOWED_DIRECTORIES.join(', ')}`
+            );
+          }
+          this.currentWorkingDir = newPath;
+          await this.ensureWorkingDirectory();
           return createToolResponse([
             {
               type: "text",
-              text: `Working directory set to: ${path}`,
+              text: `Working directory set to: ${newPath}`,
             },
           ]);
         }
@@ -386,15 +432,33 @@ export class PackageManagerServer {
           };
 
           try {
-            // Change to the target directory
-            const originalDir = process.cwd();
-            process.chdir(projectPath);
+            // Validate and ensure working directory
+            await this.ensureWorkingDirectory();
+            
+            // Ensure project path is within allowed directories
+            const fullProjectPath = path.isAbsolute(projectPath) 
+              ? projectPath 
+              : path.join(this.currentWorkingDir, projectPath);
 
-            // Execute the create-next-app command
+            if (!this.validateWorkingDirectory(fullProjectPath)) {
+              throw new McpError(
+                ErrorCode.InvalidRequest,
+                `Project path must be within allowed directories: ${ALLOWED_DIRECTORIES.join(', ')}`
+              );
+            }
+
+            // Create parent directory
+            await mkdir(dirname(fullProjectPath), { recursive: true });
+            
+            // Store original directory and change to project parent
+            const originalDir = process.cwd();
+            process.chdir(dirname(fullProjectPath));
+
+            // Execute create-next-app
             const command = PACKAGE_MANAGERS.nextjs.create;
             const output = await executeInteractiveCommand(command, answers);
 
-            // Change back to the original directory
+            // Restore original directory
             process.chdir(originalDir);
 
             return createToolResponse([
@@ -404,6 +468,11 @@ export class PackageManagerServer {
               },
             ]);
           } catch (error: any) {
+            // Ensure we return to original directory even on error
+            try {
+              process.chdir(this.currentWorkingDir);
+            } catch {}
+
             return createToolResponse([
               {
                 type: "text",
@@ -429,3 +498,4 @@ export class PackageManagerServer {
       );
     }
   }
+}

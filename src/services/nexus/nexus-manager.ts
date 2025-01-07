@@ -22,6 +22,7 @@ export class NexusManager {
     this.server = server;
     this.nodes = new Map();
     this.links = [];
+    // Change from absolute path to relative path
     this.dataDir = path.join(process.cwd(), "data");
     this.singlePageScraper = new SinglePageScraper();
     this.initializeStorage();

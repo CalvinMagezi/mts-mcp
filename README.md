@@ -8,6 +8,13 @@ This project provides a collection of MCP servers and specialized agents that ex
 
 ### MCP Capabilities
 
+- **Package Manager**: Manages project dependencies and application setup with:
+  - Multiple package manager support (npm, yarn, pnpm, bun)
+  - Next.js project creation with interactive setup
+  - Secure directory management
+  - Dev and production dependency handling
+  - Package installation and removal
+
 - **Nexus Knowledge Graph**: Manages and stores knowledge in a graph structure with entities and relationships
 - **Reasoning Engine**: Provides structured reasoning capabilities including:
 
