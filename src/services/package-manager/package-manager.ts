@@ -101,13 +101,10 @@ async function executeInteractiveCommand(
 
 // Add these constants at the top of the file
 const ALLOWED_DIRECTORIES = [
-  'desktop',
-  'downloads',
-  'documents'
-].map(dir => {
-  const homedir = process.env.HOME || process.env.USERPROFILE;
-  return path.join(homedir || '', dir.toLowerCase());
-});
+  '/Users/calvinmagezi/Desktop',
+  '/Users/calvinmagezi/Downloads',
+  '/Users/calvinmagezi/Documents'
+];
 
 export class PackageManagerServer {
   private server: Server;
@@ -321,9 +318,9 @@ export class PackageManagerServer {
   }
 
   private validateWorkingDirectory(dir: string): boolean {
-    const normalizedPath = path.normalize(dir).toLowerCase();
+    const normalizedPath = path.normalize(dir);
     return ALLOWED_DIRECTORIES.some(allowed => 
-      normalizedPath.startsWith(allowed.toLowerCase())
+      normalizedPath.toLowerCase().startsWith(allowed.toLowerCase())
     );
   }
 
